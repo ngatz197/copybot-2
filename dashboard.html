@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Wallet CopyTrader Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #f8f7f4;
+            --card: #ffffff;
+            --text: #1f1f1f;
+            --accent: #3b82f6;
+        }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .topbar {
+            background: white;
+            padding: 15px 25px;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            padding: 20px;
+        }
+        .metric-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-value {
+            font-size: 28px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+        .wallet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+            padding: 0 20px 20px;
+        }
+        .wallet-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .wallet-card h3 {
+            margin-top: 0;
+        }
+        .wallet-card ul {
+            padding-left: 18px;
+            margin: 0;
+        }
+        .wallet-card ul li {
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .chart-container {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        h1 { margin: 0; font-size: 20px; }
+        .last-updated { font-size: 13px; color: #888; }
+        .error-msg {
+            color: #ef4444;
+            padding: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="topbar">
+        <h1>Multi-Wallet CopyTrader Dashboard</h1>
+        <div class="last-updated" id="last-updated">Last updated: just now</div>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="chart-container">
+        <h2>Cumulative PnL</h2>
+        <canvas id="pnlChart" height="120"></canvas>
+    </div>
+
+    <div class="wallet-grid" id="wallet-grid"></div>
+
+    <script>
+        let pnlChart = null;
+        const pnlHistory = [];
+
+        async function fetchData() {
+            try {
+                const res = await fetch('/data');
+                if (!res.ok) throw new Error('Server returned ' + res.status);
+                const data = await res.json();
+
+                // ── Metrics ──────────────────────────────────────────────
+                document.getElementById('metrics').innerHTML = `
+                    <div class="metric-card">
+                        <div class="metric-label">Balance</div>
+                        <div class="metric-value">$${data.bankroll.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Total PnL</div>
+                        <div class="metric-value ${data.total_pnl >= 0 ? 'positive' : 'negative'}">
+                            ${data.total_pnl >= 0 ? '+' : ''}$${data.total_pnl.toFixed(2)}
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Win Rate</div>
+                        <div class="metric-value">${data.win_rate}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Open Positions</div>
+                        <div class="metric-value">${data.open_count}/${data.max_positions || 8}</div>
+                    </div>
+                `;
+
+                // ── PnL Chart ─────────────────────────────────────────────
+                pnlHistory.push({
+                    time: new Date().toLocaleTimeString(),
+                    pnl: data.total_pnl
+                });
+                if (pnlHistory.length > 60) pnlHistory.shift(); // keep last 60 ticks
+
+                const ctx = document.getElementById('pnlChart').getContext('2d');
+                if (pnlChart) {
+                    pnlChart.data.labels = pnlHistory.map(p => p.time);
+                    pnlChart.data.datasets[0].data = pnlHistory.map(p => p.pnl);
+                    pnlChart.update();
+                } else {
+                    pnlChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: pnlHistory.map(p => p.time),
+                            datasets: [{
+                                label: 'Cumulative PnL ($)',
+                                data: pnlHistory.map(p => p.pnl),
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59,130,246,0.08)',
+                                tension: 0.3,
+                                fill: true,
+                                pointRadius: 3,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                y: { ticks: { callback: v => '$' + v.toFixed(2) } }
+                            }
+                        }
+                    });
+                }
+
+                // ── Wallet Cards ──────────────────────────────────────────
+                const wallets = data.wallets || {};
+                document.getElementById('wallet-grid').innerHTML = Object.entries(wallets).map(([name, w]) => {
+                    const pnlClass = w.total_pnl >= 0 ? 'positive' : 'negative';
+                    const pnlSign  = w.total_pnl >= 0 ? '+' : '';
+                    const tradesHtml = w.closed_trades.length
+                        ? w.closed_trades.map(t => `
+                            <li>
+                                ${t.outcome} |
+                                ${(t.entry_price * 100).toFixed(1)}¢ → ${(t.exit_price * 100).toFixed(1)}¢ |
+                                <strong class="${t.pnl >= 0 ? 'positive' : 'negative'}">
+                                    ${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}
+                                </strong>
+                            </li>`).join('')
+                        : '<li style="color:#888">No closed trades yet</li>';
+
+                    return `
+                        <div class="wallet-card">
+                            <h3>${name}</h3>
+                            <p><strong>PnL:</strong>
+                                <span class="${pnlClass}">${pnlSign}$${w.total_pnl.toFixed(2)}</span>
+                            </p>
+                            <p><strong>Win Rate:</strong> ${w.win_rate}% (${w.wins}W / ${w.losses}L)</p>
+                            <p><strong>Open Positions:</strong> ${w.open}</p>
+                            <h4 style="margin-bottom:6px">Last Closed Trades</h4>
+                            <ul>${tradesHtml}</ul>
+                        </div>`;
+                }).join('');
+
+                document.getElementById('last-updated').textContent =
+                    'Last updated: ' + new Date().toLocaleTimeString();
+
+            } catch (e) {
+                console.error('Failed to fetch dashboard data', e);
+                document.getElementById('metrics').innerHTML =
+                    '<div class="error-msg">⚠️ Could not reach /data — is the bot running?</div>';
+            }
+        }
+
+        // Refresh every 30 seconds
+        setInterval(fetchData, 30000);
+        fetchData();
+    </script>
+</body>
+</html>
