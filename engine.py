@@ -14,7 +14,7 @@ from models import Position, PendingLimitBuy, SeenTradesStore, save_bankroll, lo
 from exchange import RobustBalanceManager, PolymarketExecutor, PolymarketWSListener, PolymarketUserChannelListener
 
 # ==================== ENVIRONMENT / CONSTANTS ====================
-MAX_POSITIONS         = int(os.getenv("MAX_POSITIONS", "8"))
+MAX_POSITIONS         = int(os.getenv("MAX_POSITIONS", "50"))
 MAX_DRAWDOWN          = float(os.getenv("MAX_DRAWDOWN", "0.20"))
 HEALTH_PORT           = int(os.getenv("PORT", "8080"))
 MAX_RETRIES           = 3
@@ -35,11 +35,11 @@ except ImportError:
 # ==================== SIZING HELPERS ====================
 def _price_based_size(price: float) -> float:
     if price < 0.30:
-        pct = 0.01   # 1% for low-probability outcomes
+        pct = 0.01   # 5% for low-probability outcomes
     elif price <= 0.70:
-        pct = 0.05   # 5% for mid-range outcomes
+        pct = 0.05   # 20% for mid-range outcomes
     else:
-        pct = 0.07   # 7% for high-probability outcomes
+        pct = 0.07   # 25% for high-probability outcomes
     return cfg.compounding_bankroll * pct
 
 
