@@ -53,7 +53,7 @@ WALLETS: Dict[str, dict] = {
     "0xa1795199a227f8d68134f30bf26314a9918c9629": {
         "name": "Coniyr",
         "risk_type": "fixed",
-        "fixed_risk": 0.20,   # 7%
+        "fixed_risk": 0.22,   # 7%
         "copy_mode": "all",
     },
 }
