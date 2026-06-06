@@ -47,13 +47,13 @@ WALLETS: Dict[str, dict] = {
         "name": "Kruto",
         "risk_type": "price_based",
         "copy_mode": "all",
-        "limit_buy_max_premium": 0.10,
+        "limit_buy_max_premium": 0.30,
         "copy_sub_dollar": True,
     },
     "0xa1795199a227f8d68134f30bf26314a9918c9629": {
         "name": "Coniyr",
         "risk_type": "fixed",
-        "fixed_risk": 0.07,   # 7%
+        "fixed_risk": 0.20,   # 7%
         "copy_mode": "all",
     },
 }
